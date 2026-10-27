@@ -159,3 +159,57 @@ test("compaction drops the record, so the file loads again", async () => {
 	assert.ok(reloaded);
 	assert.match(reloaded.content.at(-1).text, /foo rules/);
 });
+
+const bashResult = (command: string) => ({
+	type: "tool_result",
+	toolName: "bash",
+	input: { command },
+	content: [{ type: "text", text: "cmd output" }],
+	isError: false,
+});
+
+test("bash that reads a file inside a package loads its context", async () => {
+	const cwd = workspace({ "packages/foo/AGENTS.md": "foo rules", "packages/foo/a.ts": "code" });
+	const { fire } = harness();
+
+	const result = await fire("tool_result", bashResult("cd packages/foo && sed -n 1,20p a.ts"), context(cwd));
+
+	assert.ok(result);
+	assert.match(result.content.at(-1).text, /Instructions from: .*packages\/foo\/AGENTS\.md/);
+});
+
+test("bash that only changes directory or lists files loads nothing", async () => {
+	const cwd = workspace({ "packages/foo/AGENTS.md": "foo rules", "packages/foo/a.ts": "code" });
+	const { fire } = harness();
+	const ctx = context(cwd);
+
+	for (const command of ["cd packages/foo", "cd packages/foo && ls", "grep -rn code packages"]) {
+		assert.equal(await fire("tool_result", bashResult(command), ctx), undefined, command);
+	}
+});
+
+test("a bash result injects at most two context files", async () => {
+	const cwd = workspace({
+		"packages/a/AGENTS.md": "a rules",
+		"packages/a/x.ts": "x",
+		"packages/b/AGENTS.md": "b rules",
+		"packages/b/y.ts": "y",
+		"packages/c/AGENTS.md": "c rules",
+		"packages/c/z.ts": "z",
+	});
+	const { fire } = harness();
+
+	const result = await fire(
+		"tool_result",
+		bashResult("cat packages/a/x.ts && cat packages/b/y.ts && cat packages/c/z.ts"),
+		context(cwd),
+	);
+
+	assert.ok(result);
+	assert.equal(result.details.agentsMdContext.files.length, 2);
+
+	// the third one was not recorded, so a later command can still load it
+	const later = await fire("tool_result", bashResult("cat packages/c/z.ts"), context(cwd, []));
+	assert.ok(later);
+	assert.match(later.content.at(-1).text, /c rules/);
+});

@@ -43,18 +43,23 @@ packages/web/src/AGENTS.md   （若存在）
 
 ## 行为细节
 
-- 成功的 `read`、`edit`、`write` 结果会触发：文件正文或对它的改动已经进了对话。`bash`、`ls`、`grep`、`find` 不触发 —— 只是看一眼目录，不等于在该目录干活。
+- 成功的 `read`、`edit`、`write` 结果会触发：文件正文或对它的改动已经进了对话。
+- `bash` 里真正读文件内容的命令同样触发：`cat`、`sed`（非 `-i`）、`head`、`tail`、`bat`、`less`、`awk`。Pi 的 agent 用这些的频率和 `read` 相当，属于同一读取通道。
+- `cd` 只用于决定后续相对路径的基准目录，本身不加载任何东西。`ls`、`grep`、`find` 等探索命令永不触发。
+- 每次工具结果最多追加 2 个 context file，避免一条 `cat a b c` 把上下文灌满。
 - 工作目录之外的目标一律忽略；工作目录以上的祖先链由 Pi 自己负责。
 - 按内容哈希判断：未变化的文件不再注入，变化的重新注入。
 - 直接读取或写入 context file 本身时只记录、不回贴内容。
 - 注入落在工具结果里，不进 system prompt。必须扛过压缩的硬约束，应写在根 `AGENTS.md` 或 `.pi/APPEND_SYSTEM.md`。
-- 全程只用 shell 命令的工作流（`sed -i`、`tee`、在包内跑 `npm run`）不会触发；等 agent 用 `read`、`edit`、`write` 操作包内文件时才加载。
+- 只做搜索的工作流（`grep`、`rg`、`ls`、`find`）不加载任何东西；第一次真正读文件时才注入，无论走 `read` 还是 `cat`/`sed`。
+- shell 写文件（`sed -i`、`tee`、重定向）不识别；写入路径靠 `edit`、`write`。
 
 ## 源码结构
 
 ```
 src/projection.ts   rebuiltState(messages)   纯函数：可见记录 → known map
-src/attachments.ts  planAttachments(input)   纯函数：一次 read → 待追加列表
+src/attachments.ts  planAttachments(input)   纯函数：一个文件 → 待追加列表
+src/bashReads.ts    bashReadTargets(cmd, cwd) 纯函数：shell 命令 → 它读了哪些文件
 src/index.ts        事件绑定（session_start / session_compact / tool_result）
 ```
 

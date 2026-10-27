@@ -1,18 +1,29 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
-import { planAttachments } from "./attachments.ts";
+import { planAttachments, type Attachment } from "./attachments.ts";
+import { bashReadTargets } from "./bashReads.ts";
 import { rebuiltState } from "./projection.ts";
 import { DETAILS_KEY, type FileRecord } from "./types.ts";
 
 /** false: inject once per path, like opencode. true: re-inject changed files. */
 const COMPARE_CONTENT = true;
 
+/** Cap per tool result so one `cat a b c` cannot flood the context. */
+const MAX_INJECTIONS_PER_RESULT = 2;
+
 /**
- * Tools that put a file's content or a change to it in the transcript. `bash`,
- * `ls`, `grep`, `find` and friends deliberately do not trigger: looking around a
- * directory is not the same as working in it.
+ * `read` is explicit. Pi agents reach for `cat` / `sed -n` / `head` just as
+ * often, so those count as the same channel — but only when they really read a
+ * file (`cd`, `ls`, `grep`, `find` never do).
  */
-const TRIGGER_TOOLS = new Set(["read", "edit", "write"]);
+function targetsFor(event: { toolName: string; input: Record<string, unknown> }, cwd: string): string[] {
+	if (event.toolName === "bash") {
+		const command = event.input?.command;
+		return typeof command === "string" ? bashReadTargets(command, { cwd }) : [];
+	}
+	const path = event.input?.path;
+	return typeof path === "string" && path !== "" ? [path] : [];
+}
 
 function mergeDetails(base: unknown, files: FileRecord[]): Record<string, unknown> {
 	const payload = { files };
@@ -34,40 +45,64 @@ export default function agentsMdContext(pi: ExtensionAPI): void {
 	pi.on("session_compact", invalidate);
 
 	pi.on("tool_result", (event, ctx: ExtensionContext) => {
-		if (!TRIGGER_TOOLS.has(event.toolName) || event.isError) return undefined;
-		const targetPath = event.input?.path;
-		if (typeof targetPath !== "string" || targetPath === "") return undefined;
-		if (!Array.isArray(event.content)) return undefined;
+		if (event.isError || !Array.isArray(event.content)) return undefined;
+
+		const triggers = event.toolName === "bash" || event.toolName === "read" ||
+			event.toolName === "edit" || event.toolName === "write";
+		if (!triggers) return undefined;
+
+		const targets = targetsFor(event, ctx.cwd);
+		if (targets.length === 0) return undefined;
 
 		if (state === null) {
 			const manager = (ctx as unknown as { sessionManager?: { buildSessionContext?: () => { messages: unknown } } })
 				.sessionManager;
 			state = rebuiltState((manager?.buildSessionContext?.().messages ?? []) as never);
 		}
+		const known = state;
 
-		const plan = planAttachments({
-			targetPath,
-			root: ctx.cwd,
-			known: state,
-			compareContent: COMPARE_CONTENT,
-		});
-		if (plan.recorded.length === 0) return undefined;
+		const attachments: Attachment[] = [];
+		let injected = 0;
 
-		for (const record of plan.recorded) state.set(record.path, record.sha);
-		if (plan.attachments.length === 0) return undefined;
+		for (const target of targets) {
+			const plan = planAttachments({
+				targetPath: target,
+				root: ctx.cwd,
+				known,
+				compareContent: COMPARE_CONTENT,
+			});
+			if (plan.recorded.length === 0) continue;
+
+			const pendingInjections = new Set(plan.attachments.map((file) => file.path));
+
+			// A read of a context file itself, or anything already injected, is recorded only.
+			for (const record of plan.recorded) {
+				if (pendingInjections.has(record.path)) continue;
+				known.set(record.path, record.sha);
+			}
+
+			for (const file of plan.attachments) {
+				if (injected >= MAX_INJECTIONS_PER_RESULT) break; // left unrecorded: next command may load it
+				injected++;
+				known.set(file.path, file.sha);
+				attachments.push(file);
+			}
+		}
+
+		if (attachments.length === 0) return undefined;
 
 		return {
 			content: [
 				...event.content,
-				...plan.attachments.map((file) => ({
+				...attachments.map((file) => ({
 					type: "text" as const,
 					text: `Instructions from: ${file.path}\n${file.content}`,
 				})),
 			],
-			details: mergeDetails(event.details, plan.attachments.map(({ path, sha }) => ({ path, sha }))),
+			details: mergeDetails(event.details, attachments.map(({ path, sha }) => ({ path, sha }))),
 			structuredContent: event.structuredContent,
 		};
 	});
 }
 
-export { planAttachments, rebuiltState, DETAILS_KEY };
+export { planAttachments, rebuiltState, bashReadTargets, DETAILS_KEY };

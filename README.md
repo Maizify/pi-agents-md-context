@@ -43,18 +43,23 @@ This extension stores what it injected in the read result's `details`, which is 
 
 ## Behaviour details
 
-- Successful `read`, `edit`, and `write` results trigger it: a file's content, or a change to it, is in the transcript. `bash`, `ls`, `grep`, and `find` do not — looking around a directory is not working in it.
+- Successful `read`, `edit`, and `write` results trigger it: a file's content, or a change to it, is in the transcript.
+- So do `bash` commands that read a file's content: `cat`, `sed` (not `-i`), `head`, `tail`, `bat`, `less`, `awk`. Pi agents reach for these as often as `read`, so they count as the same channel.
+- `cd` only moves the directory used to resolve later paths; it never loads anything by itself. `ls`, `grep`, `find` and other exploration commands never trigger.
+- At most two context files are appended per tool result, so one `cat a b c` cannot flood the context.
 - Targets outside the working directory are ignored; the ancestor chain above it is Pi's job.
 - Content is hashed. Unchanged files stay quiet; changed files are injected again.
 - Reading or writing a context file itself is recorded, not appended back.
 - Injection lands in the tool result, not the system prompt. Rules that must survive compaction belong in a root `AGENTS.md` or `.pi/APPEND_SYSTEM.md`.
-- A workflow that only uses shell commands (`sed -i`, `tee`, `npm run` inside a package) triggers nothing; the load happens as soon as the agent uses `read`, `edit`, or `write`.
+- Search-only work (`grep`, `rg`, `ls`, `find`) loads nothing; the context arrives at the first file read, whether through `read` or `cat`/`sed`.
+- Writes through the shell (`sed -i`, `tee`, output redirection) are not detected either; `edit` and `write` are.
 
 ## Source layout
 
 ```
 src/projection.ts   rebuiltState(messages)   pure: visible records -> known map
-src/attachments.ts  planAttachments(input)   pure: one read -> what to append
+src/attachments.ts  planAttachments(input)   pure: one file -> what to append
+src/bashReads.ts    bashReadTargets(cmd, cwd) pure: shell command -> files it reads
 src/index.ts        extension wiring (session_start / session_compact / tool_result)
 ```
 
