@@ -30,7 +30,7 @@ Filename precedence matches Pi: `AGENTS.override.md` > `AGENTS.md` > `CLAUDE.md`
 
 ## Why another one
 
-Four packages already attach nested `AGENTS.md`, and all of them keep their dedupe state in a process-local cache. That causes two problems: resuming a session after a restart injects the same text again (and again), and nothing reloads after compaction drops the message that carried it.
+Most nested-context loaders keep their dedupe state in a process-local cache. That causes two problems: resuming a session after a restart injects the same text again (and again), and nothing reloads after compaction drops the message that carried it.
 
 This extension stores what it injected in the read result's `details`, which is persisted with the message, and rebuilds its state from `sessionManager.buildSessionContext()` — the compaction-aware projection sent to the model.
 
