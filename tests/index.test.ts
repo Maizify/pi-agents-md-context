@@ -216,3 +216,65 @@ test("a bash result injects at most two context files", async () => {
 	assert.ok(later);
 	assert.match(later.content.at(-1).text, /c rules/);
 });
+
+test("a failed tool result never injects", async () => {
+	const cwd = workspace({ "packages/foo/AGENTS.md": "foo rules", "packages/foo/a.ts": "code" });
+	const { fire } = harness();
+	const ctx = context(cwd);
+
+	const failedRead = await fire(
+		"tool_result",
+		{ ...toolResult("read", "packages/foo/a.ts"), isError: true },
+		ctx,
+	);
+	assert.equal(failedRead, undefined);
+
+	const failedBash = await fire(
+		"tool_result",
+		{ ...bashResult("cd packages/foo && sed -n 1,5p a.ts"), isError: true },
+		ctx,
+	);
+	assert.equal(failedBash, undefined);
+});
+
+test("several tool calls for one directory inject only once", async () => {
+	const cwd = workspace({
+		"packages/foo/AGENTS.md": "foo rules",
+		"packages/foo/a.ts": "a",
+		"packages/foo/b.ts": "b",
+	});
+	const { fire } = harness();
+	const ctx = context(cwd);
+
+	const first = await fire("tool_result", toolResult("read", "packages/foo/a.ts"), ctx);
+	const second = await fire("tool_result", toolResult("read", "packages/foo/b.ts"), ctx);
+	const third = await fire("tool_result", bashResult("cat packages/foo/b.ts"), ctx);
+
+	assert.ok(first);
+	assert.equal(second, undefined);
+	assert.equal(third, undefined);
+});
+
+test("one command reading two files of the same package injects one file", async () => {
+	const cwd = workspace({
+		"packages/foo/AGENTS.md": "foo rules",
+		"packages/foo/a.ts": "a",
+		"packages/foo/b.ts": "b",
+	});
+	const { fire } = harness();
+
+	const result = await fire("tool_result", bashResult("cat packages/foo/a.ts packages/foo/b.ts"), context(cwd));
+
+	assert.ok(result);
+	assert.equal(result.details.agentsMdContext.files.length, 1);
+});
+
+test("the same command repeated later stays silent", async () => {
+	const cwd = workspace({ "packages/foo/AGENTS.md": "foo rules", "packages/foo/a.ts": "a" });
+	const { fire } = harness();
+	const ctx = context(cwd);
+	const command = "cd packages/foo && sed -n 1,5p a.ts";
+
+	assert.ok(await fire("tool_result", bashResult(command), ctx));
+	assert.equal(await fire("tool_result", bashResult(command), ctx), undefined);
+});
