@@ -1,8 +1,14 @@
 {
   "name": "pi-agents-md-context",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Loads nested AGENTS.md files as context when a file is read, deduped through the visible session projection.",
-  "keywords": ["pi-package", "pi", "agents-md", "context", "instructions"],
+  "keywords": [
+    "pi-package",
+    "pi",
+    "agents-md",
+    "context",
+    "instructions"
+  ],
   "license": "MIT",
   "type": "module",
   "repository": {
@@ -14,7 +20,9 @@
     "url": "https://github.com/Maizify/pi-agents-md-context/issues"
   },
   "pi": {
-    "extensions": ["./src/index.ts"]
+    "extensions": [
+      "./src/index.ts"
+    ]
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*"
@@ -24,7 +32,12 @@
       "optional": true
     }
   },
-  "files": ["src", "README.md", "README.zh-CN.md", "LICENSE"],
+  "files": [
+    "src",
+    "README.md",
+    "README.zh-CN.md",
+    "LICENSE"
+  ],
   "engines": {
     "node": ">=22"
   },

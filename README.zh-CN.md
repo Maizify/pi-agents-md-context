@@ -43,11 +43,12 @@ packages/web/src/AGENTS.md   （若存在）
 
 ## 行为细节
 
-- 只有成功的 `read` 结果会触发；`ls`、`grep`、`glob`、shell 命令都不触发。
+- 成功的 `read`、`edit`、`write` 结果会触发：文件正文或对它的改动已经进了对话。`bash`、`ls`、`grep`、`find` 不触发 —— 只是看一眼目录，不等于在该目录干活。
 - 工作目录之外的目标一律忽略；工作目录以上的祖先链由 Pi 自己负责。
 - 按内容哈希判断：未变化的文件不再注入，变化的重新注入。
-- 直接读取 context file 本身时只记录、不回贴内容。
+- 直接读取或写入 context file 本身时只记录、不回贴内容。
 - 注入落在工具结果里，不进 system prompt。必须扛过压缩的硬约束，应写在根 `AGENTS.md` 或 `.pi/APPEND_SYSTEM.md`。
+- 全程只用 shell 命令的工作流（`sed -i`、`tee`、在包内跑 `npm run`）不会触发；等 agent 用 `read`、`edit`、`write` 操作包内文件时才加载。
 
 ## 源码结构
 

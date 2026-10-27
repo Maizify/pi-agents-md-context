@@ -43,11 +43,12 @@ This extension stores what it injected in the read result's `details`, which is 
 
 ## Behaviour details
 
-- Only successful `read` results trigger it. `ls`, `grep`, `glob`, and shell commands do not.
+- Successful `read`, `edit`, and `write` results trigger it: a file's content, or a change to it, is in the transcript. `bash`, `ls`, `grep`, and `find` do not — looking around a directory is not working in it.
 - Targets outside the working directory are ignored; the ancestor chain above it is Pi's job.
 - Content is hashed. Unchanged files stay quiet; changed files are injected again.
-- A read of a context file itself is recorded, not appended back.
+- Reading or writing a context file itself is recorded, not appended back.
 - Injection lands in the tool result, not the system prompt. Rules that must survive compaction belong in a root `AGENTS.md` or `.pi/APPEND_SYSTEM.md`.
+- A workflow that only uses shell commands (`sed -i`, `tee`, `npm run` inside a package) triggers nothing; the load happens as soon as the agent uses `read`, `edit`, or `write`.
 
 ## Source layout
 
