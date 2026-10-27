@@ -1,7 +1,7 @@
 {
   "name": "pi-agents-md-context",
   "version": "0.1.0",
-  "description": "Loads nested AGENTS.md files as context when a file is read, deduped through the visible session projection (no subagents).",
+  "description": "Loads nested AGENTS.md files as context when a file is read, deduped through the visible session projection.",
   "keywords": ["pi-package", "pi", "agents-md", "context", "instructions"],
   "license": "MIT",
   "type": "module",
@@ -24,7 +24,7 @@
       "optional": true
     }
   },
-  "files": ["src", "README.md", "LICENSE"],
+  "files": ["src", "README.md", "README.zh-CN.md", "LICENSE"],
   "engines": {
     "node": ">=22"
   },

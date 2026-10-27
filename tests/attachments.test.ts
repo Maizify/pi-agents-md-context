@@ -18,10 +18,10 @@ function fsStub(files: Record<string, string>) {
 }
 
 test("dirsBetween walks from the file's directory up to the root, root-most first", () => {
-	assert.deepEqual(dirsBetween("/repo/packages/magi/src/a.ts", ROOT), [
+	assert.deepEqual(dirsBetween("/repo/packages/web/src/a.ts", ROOT), [
 		"/repo/packages",
-		"/repo/packages/magi",
-		"/repo/packages/magi/src",
+		"/repo/packages/web",
+		"/repo/packages/web/src",
 	]);
 });
 
@@ -37,28 +37,28 @@ test("dirsBetween returns nothing for a file sitting in the root itself", () => 
 test("planAttachments injects every nested context file, root-most first", () => {
 	const fs = fsStub({
 		"/repo/packages/AGENTS.md": "packages rules",
-		"/repo/packages/magi/AGENTS.md": "magi rules",
-		"/repo/packages/magi/src/a.ts": "code",
+		"/repo/packages/web/AGENTS.md": "web rules",
+		"/repo/packages/web/src/a.ts": "code",
 	});
 
-	const plan = planAttachments({ targetPath: "packages/magi/src/a.ts", root: ROOT, known: new Map(), ...fs });
+	const plan = planAttachments({ targetPath: "packages/web/src/a.ts", root: ROOT, known: new Map(), ...fs });
 
 	assert.deepEqual(
 		plan.attachments.map((file) => file.path),
-		["/repo/packages/AGENTS.md", "/repo/packages/magi/AGENTS.md"],
+		["/repo/packages/AGENTS.md", "/repo/packages/web/AGENTS.md"],
 	);
-	assert.deepEqual(plan.attachments.map((file) => file.content), ["packages rules", "magi rules"]);
+	assert.deepEqual(plan.attachments.map((file) => file.content), ["packages rules", "web rules"]);
 });
 
 test("planAttachments skips files the visible projection already carries", () => {
 	const fs = fsStub({
 		"/repo/packages/AGENTS.md": "packages rules",
-		"/repo/packages/magi/AGENTS.md": "magi rules",
-		"/repo/packages/magi/src/a.ts": "code",
+		"/repo/packages/web/AGENTS.md": "web rules",
+		"/repo/packages/web/src/a.ts": "code",
 	});
-	const known = new Map([["/repo/packages/magi/AGENTS.md", hashContent("magi rules")]]);
+	const known = new Map([["/repo/packages/web/AGENTS.md", hashContent("web rules")]]);
 
-	const plan = planAttachments({ targetPath: "packages/magi/src/a.ts", root: ROOT, known, ...fs });
+	const plan = planAttachments({ targetPath: "packages/web/src/a.ts", root: ROOT, known, ...fs });
 
 	assert.deepEqual(plan.attachments.map((file) => file.path), ["/repo/packages/AGENTS.md"]);
 });
@@ -109,16 +109,16 @@ test("compareContent: false dedupes by path only", () => {
 test("reading a context file itself records it without injecting it again", () => {
 	const fs = fsStub({
 		"/repo/packages/AGENTS.md": "packages rules",
-		"/repo/packages/magi/AGENTS.md": "magi rules",
+		"/repo/packages/web/AGENTS.md": "web rules",
 	});
 
-	const plan = planAttachments({ targetPath: "packages/magi/AGENTS.md", root: ROOT, known: new Map(), ...fs });
+	const plan = planAttachments({ targetPath: "packages/web/AGENTS.md", root: ROOT, known: new Map(), ...fs });
 
 	// the file that was just read is not appended back; the parent rules still are
 	assert.deepEqual(plan.attachments.map((file) => file.path), ["/repo/packages/AGENTS.md"]);
 	assert.deepEqual(
 		plan.recorded.map((record) => record.path),
-		["/repo/packages/AGENTS.md", "/repo/packages/magi/AGENTS.md"],
+		["/repo/packages/AGENTS.md", "/repo/packages/web/AGENTS.md"],
 	);
 });
 

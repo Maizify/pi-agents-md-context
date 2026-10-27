@@ -1,8 +1,10 @@
 # pi-agents-md-context
 
-Nested `AGENTS.md` context for [Pi](https://github.com/earendil-works/pi), deduped through the **visible** session projection. No subagents involved.
+English | [简体中文](README.zh-CN.md)
 
-Pi itself loads context files from the working directory and its ancestors. Files in subdirectories are not loaded. This extension appends them when the agent reads a file under them.
+Nested `AGENTS.md` context for [Pi](https://github.com/earendil-works/pi), deduped through the **visible** session projection.
+
+Pi loads context files from the working directory and its ancestors. Files in subdirectories are not loaded. This extension appends them when the agent reads a file under them.
 
 ## Install
 
@@ -14,12 +16,12 @@ pi -e ./path/to/pi-agents-md-context  # try once, no settings change
 
 ## What it does
 
-Reading `packages/magi/src/server.ts` appends every context file between that directory and the working directory, root-most first:
+Reading `packages/web/src/server.ts` appends every context file between that directory and the working directory, root-most first:
 
 ```
 packages/AGENTS.md
-packages/magi/AGENTS.md
-packages/magi/src/AGENTS.md   (if present)
+packages/web/AGENTS.md
+packages/web/src/AGENTS.md   (if present)
 ```
 
 Filename precedence matches Pi: `AGENTS.override.md` > `AGENTS.md` > `CLAUDE.md`, one file per directory.
