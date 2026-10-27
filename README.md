@@ -2,6 +2,8 @@
 
 English | [简体中文](README.zh-CN.md)
 
+[![CI](https://github.com/Maizify/pi-agents-md-context/actions/workflows/ci.yml/badge.svg)](https://github.com/Maizify/pi-agents-md-context/actions/workflows/ci.yml)
+
 Nested `AGENTS.md` context for [Pi](https://github.com/earendil-works/pi), deduped through the **visible** session projection.
 
 Pi loads context files from the working directory and its ancestors. Files in subdirectories are not loaded. This extension appends them when the agent reads a file under them.

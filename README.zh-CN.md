@@ -2,6 +2,8 @@
 
 [English](README.md) | 简体中文
 
+[![CI](https://github.com/Maizify/pi-agents-md-context/actions/workflows/ci.yml/badge.svg)](https://github.com/Maizify/pi-agents-md-context/actions/workflows/ci.yml)
+
 Pi 的嵌套 `AGENTS.md` 上下文加载器，按**可见**会话投影去重。
 
 Pi 自身只加载工作目录及其祖先目录的 context file，子目录里的不会加载。本扩展在 agent 读取某个文件时，把这些子目录的 `AGENTS.md` 追加进该次读取结果。
