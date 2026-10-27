@@ -25,6 +25,9 @@ function targetsFor(event: { toolName: string; input: Record<string, unknown> },
 	return typeof path === "string" && path !== "" ? [path] : [];
 }
 
+/** Pi's own preamble for project context, reused so the block reads as instructions. */
+const PROJECT_CONTEXT_PREAMBLE = "Project-specific instructions and guidelines:";
+
 /** Same shape Pi uses for context files in the system prompt. */
 function formatContextBlock(file: Attachment): string {
 	return `<project_instructions path="${file.path}">\n${file.content.trimEnd()}\n</project_instructions>`;
@@ -99,10 +102,12 @@ export default function agentsMdContext(pi: ExtensionAPI): void {
 		return {
 			content: [
 				...event.content,
-				...attachments.map((file) => ({
+				{
+					// One block, separated from the tool output by Pi's own preamble: this is
+					// context loaded from another file, not part of what the tool returned.
 					type: "text" as const,
-					text: formatContextBlock(file),
-				})),
+					text: [PROJECT_CONTEXT_PREAMBLE, ...attachments.map(formatContextBlock)].join("\n\n"),
+				},
 			],
 			details: mergeDetails(event.details, attachments.map(({ path, sha }) => ({ path, sha }))),
 			structuredContent: event.structuredContent,

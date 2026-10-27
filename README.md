@@ -50,7 +50,7 @@ This extension stores what it injected in the read result's `details`, which is 
 - Targets outside the working directory are ignored; the ancestor chain above it is Pi's job.
 - Content is hashed. Unchanged files stay quiet; changed files are injected again.
 - Reading or writing a context file itself is recorded, not appended back.
-- Injection lands in the tool result, not the system prompt, and uses Pi's own `<project_instructions path="…">` shape so the model reads it the same way it reads the context files Pi already loaded.
+- Injection lands in the tool result, not the system prompt, as one extra text block after the tool output: Pi's own `Project-specific instructions and guidelines:` preamble plus a `<project_instructions path="…">` wrapper, so the model reads it the same way it reads the context files Pi already loaded — and can see it is not part of the file the tool just returned.
 - Being a tool result, it can still be compacted away; rules that must survive belong in a root `AGENTS.md` or `.pi/APPEND_SYSTEM.md`.
 - Search-only work (`grep`, `rg`, `ls`, `find`) loads nothing; the context arrives at the first file read, whether through `read` or `cat`/`sed`.
 - Writes through the shell (`sed -i`, `tee`, output redirection) are not detected either; `edit` and `write` are.
