@@ -5,6 +5,14 @@
   "keywords": ["pi-package", "pi", "agents-md", "context", "instructions"],
   "license": "MIT",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Maizify/pi-agents-md-context.git"
+  },
+  "homepage": "https://github.com/Maizify/pi-agents-md-context#readme",
+  "bugs": {
+    "url": "https://github.com/Maizify/pi-agents-md-context/issues"
+  },
   "pi": {
     "extensions": ["./src/index.ts"]
   },
