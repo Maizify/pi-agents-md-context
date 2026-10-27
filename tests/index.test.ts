@@ -64,7 +64,10 @@ test("read inside a subdirectory appends the context file", async () => {
 	const result = await fire("tool_result", toolResult("read", "packages/foo/a.ts"), context(cwd));
 
 	assert.ok(result);
-	assert.match(result.content.at(-1).text, /Instructions from: .*packages\/foo\/AGENTS\.md\nfoo rules/);
+	assert.match(
+		result.content.at(-1).text,
+		/<project_instructions path="[^"]*packages\/foo\/AGENTS\.md">\nfoo rules\n<\/project_instructions>/,
+	);
 	assert.equal(result.details[DETAILS_KEY].files.length, 1);
 });
 
@@ -175,7 +178,7 @@ test("bash that reads a file inside a package loads its context", async () => {
 	const result = await fire("tool_result", bashResult("cd packages/foo && sed -n 1,20p a.ts"), context(cwd));
 
 	assert.ok(result);
-	assert.match(result.content.at(-1).text, /Instructions from: .*packages\/foo\/AGENTS\.md/);
+	assert.match(result.content.at(-1).text, /<project_instructions path="[^"]*packages\/foo\/AGENTS\.md">/);
 });
 
 test("bash that only changes directory or lists files loads nothing", async () => {

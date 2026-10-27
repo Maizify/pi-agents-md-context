@@ -50,7 +50,8 @@ packages/web/src/AGENTS.md   （若存在）
 - 工作目录之外的目标一律忽略；工作目录以上的祖先链由 Pi 自己负责。
 - 按内容哈希判断：未变化的文件不再注入，变化的重新注入。
 - 直接读取或写入 context file 本身时只记录、不回贴内容。
-- 注入落在工具结果里，不进 system prompt。必须扛过压缩的硬约束，应写在根 `AGENTS.md` 或 `.pi/APPEND_SYSTEM.md`。
+- 注入落在工具结果里、不进 system prompt，但采用 Pi 自己的 `<project_instructions path="…">` 包裹格式 —— 模型会按它读系统提示里那些 context file 的同一方式来理解。
+- 因为仍是工具结果，它依然会被压缩掉；必须扛过压缩的硬约束，应写在根 `AGENTS.md` 或 `.pi/APPEND_SYSTEM.md`。
 - 只做搜索的工作流（`grep`、`rg`、`ls`、`find`）不加载任何东西；第一次真正读文件时才注入，无论走 `read` 还是 `cat`/`sed`。
 - shell 写文件（`sed -i`、`tee`、重定向）不识别；写入路径靠 `edit`、`write`。
 

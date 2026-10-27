@@ -25,6 +25,11 @@ function targetsFor(event: { toolName: string; input: Record<string, unknown> },
 	return typeof path === "string" && path !== "" ? [path] : [];
 }
 
+/** Same shape Pi uses for context files in the system prompt. */
+function formatContextBlock(file: Attachment): string {
+	return `<project_instructions path="${file.path}">\n${file.content.trimEnd()}\n</project_instructions>`;
+}
+
 function mergeDetails(base: unknown, files: FileRecord[]): Record<string, unknown> {
 	const payload = { files };
 	if (base && typeof base === "object" && !Array.isArray(base)) {
@@ -96,7 +101,7 @@ export default function agentsMdContext(pi: ExtensionAPI): void {
 				...event.content,
 				...attachments.map((file) => ({
 					type: "text" as const,
-					text: `Instructions from: ${file.path}\n${file.content}`,
+					text: formatContextBlock(file),
 				})),
 			],
 			details: mergeDetails(event.details, attachments.map(({ path, sha }) => ({ path, sha }))),
