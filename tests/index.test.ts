@@ -278,3 +278,73 @@ test("the same command repeated later stays silent", async () => {
 	assert.ok(await fire("tool_result", bashResult(command), ctx));
 	assert.equal(await fire("tool_result", bashResult(command), ctx), undefined);
 });
+
+test("a sliced bash read of the context file leaves it unrecorded", async () => {
+	const cwd = workspace({
+		"packages/foo/AGENTS.md": "line one\nline two\nline three",
+		"packages/foo/a.ts": "code",
+	});
+	const { fire } = harness();
+	const ctx = context(cwd);
+
+	// `cat AGENTS.md | head -1` shows one line, so the file is not "loaded".
+	const sliced = await fire("tool_result", bashResult("cd packages/foo && cat AGENTS.md | head -1"), ctx);
+	assert.equal(sliced, undefined);
+
+	// The next call in that directory loads the whole file.
+	const next = await fire("tool_result", bashResult("cd packages/foo && sed -n 1,5p a.ts"), ctx);
+	assert.ok(next);
+	assert.match(next.content.at(-1).text, /line one\nline two\nline three/);
+});
+
+test("a ranged read of the context file leaves it unrecorded", async () => {
+	const cwd = workspace({ "packages/foo/AGENTS.md": "line one\nline two", "packages/foo/a.ts": "code" });
+	const { fire } = harness();
+	const ctx = context(cwd);
+
+	const ranged = await fire(
+		"tool_result",
+		{ ...toolResult("read", "packages/foo/AGENTS.md"), input: { path: "packages/foo/AGENTS.md", limit: 1 } },
+		ctx,
+	);
+	assert.equal(ranged, undefined);
+
+	const next = await fire("tool_result", toolResult("read", "packages/foo/a.ts"), ctx);
+	assert.ok(next);
+	assert.match(next.content.at(-1).text, /line one\nline two/);
+});
+
+test("a truncated read result leaves the context file unrecorded", async () => {
+	const cwd = workspace({ "packages/foo/AGENTS.md": "line one\nline two", "packages/foo/a.ts": "code" });
+	const { fire } = harness();
+	const ctx = context(cwd);
+
+	const truncated = await fire(
+		"tool_result",
+		{
+			...toolResult("read", "packages/foo/AGENTS.md"),
+			details: { truncation: { outputLines: 1, totalLines: 2 } },
+		},
+		ctx,
+	);
+	assert.equal(truncated, undefined);
+
+	const next = await fire("tool_result", toolResult("read", "packages/foo/a.ts"), ctx);
+	assert.ok(next);
+});
+
+test("an edit of the context file leaves it unrecorded, a write records it", async () => {
+	const cwd = workspace({ "packages/foo/AGENTS.md": "line one\nline two", "packages/foo/a.ts": "code" });
+	const { fire } = harness();
+	const ctx = context(cwd);
+
+	const edited = await fire("tool_result", toolResult("edit", "packages/foo/AGENTS.md"), ctx);
+	assert.equal(edited, undefined);
+	const afterEdit = await fire("tool_result", toolResult("read", "packages/foo/a.ts"), ctx);
+	assert.ok(afterEdit);
+
+	const written = await fire("tool_result", toolResult("write", "packages/foo/AGENTS.md"), context(cwd));
+	assert.equal(written, undefined);
+	const afterWrite = await fire("tool_result", toolResult("read", "packages/foo/a.ts"), context(cwd));
+	assert.equal(afterWrite, undefined);
+});

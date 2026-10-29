@@ -1,7 +1,7 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { planAttachments, type Attachment } from "./attachments.ts";
-import { bashReadTargets } from "./bashReads.ts";
+import { bashReadTargets, type ReadTarget } from "./bashReads.ts";
 import { rebuiltState } from "./projection.ts";
 import { DETAILS_KEY, type FileRecord } from "./types.ts";
 
@@ -15,14 +15,27 @@ const MAX_INJECTIONS_PER_RESULT = 2;
  * `read` is explicit. Pi agents reach for `cat` / `sed -n` / `head` just as
  * often, so those count as the same channel — but only when they really read a
  * file (`cd`, `ls`, `grep`, `find` never do).
+ *
+ * `complete` is false when the call shows only a slice of the file: such a read
+ * must not mark the context file as loaded.
  */
-function targetsFor(event: { toolName: string; input: Record<string, unknown> }, cwd: string): string[] {
+function targetsFor(event: { toolName: string; input: Record<string, unknown>; details?: unknown }, cwd: string): ReadTarget[] {
 	if (event.toolName === "bash") {
 		const command = event.input?.command;
 		return typeof command === "string" ? bashReadTargets(command, { cwd }) : [];
 	}
+
 	const path = event.input?.path;
-	return typeof path === "string" && path !== "" ? [path] : [];
+	if (typeof path !== "string" || path === "") return [];
+
+	// A write replaces the file with text the model just authored.
+	if (event.toolName === "write") return [{ path, complete: true }];
+	// An edit author text for a fragment; the rest of the file stays unseen.
+	if (event.toolName === "edit") return [{ path, complete: false }];
+
+	const ranged = event.input?.offset !== undefined || event.input?.limit !== undefined;
+	const truncated = Boolean((event.details as { truncation?: unknown } | undefined)?.truncation);
+	return [{ path, complete: !ranged && !truncated }];
 }
 
 /** Pi's own preamble for project context, reused so the block reads as instructions. */
@@ -74,10 +87,11 @@ export default function agentsMdContext(pi: ExtensionAPI): void {
 
 		for (const target of targets) {
 			const plan = planAttachments({
-				targetPath: target,
+				targetPath: target.path,
 				root: ctx.cwd,
 				known,
 				compareContent: COMPARE_CONTENT,
+				completeTargetRead: target.complete,
 			});
 			if (plan.recorded.length === 0) continue;
 

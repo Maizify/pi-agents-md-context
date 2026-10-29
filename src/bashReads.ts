@@ -11,6 +11,9 @@ import { isAbsolute, resolve } from "node:path";
  */
 const READ_COMMANDS = new Set(["cat", "bat", "less", "head", "tail", "sed", "awk"]);
 
+/** Commands that page through a whole file, as opposed to showing a slice. */
+const WHOLE_FILE_COMMANDS = new Set(["cat", "bat", "less"]);
+
 /** Prefix words that do not change which command runs. */
 const PREFIX_WORDS = new Set(["sudo", "command", "time", "nohup", "exec"]);
 
@@ -111,22 +114,30 @@ export type ReadTargetOptions = {
 	isDirectory?: (path: string) => boolean;
 };
 
+export type ReadTarget = {
+	path: string;
+	/** false when the command shows only a slice: `head`, `tail`, `sed -n`, `cat f | head`. */
+	complete: boolean;
+};
+
 /**
- * Absolute paths this command reads the content of, in order.
+ * Absolute paths this command reads the content of, in order, each marked with
+ * whether the whole file was shown.
  *
  * `cd` only moves the base directory for later segments; it never yields a
  * target itself, so a bare `cd repo/pkg` loads nothing.
  */
-export function bashReadTargets(command: string, options: ReadTargetOptions): string[] {
+export function bashReadTargets(command: string, options: ReadTargetOptions): ReadTarget[] {
 	const fileTest = options.isFile ?? isFile;
 	const dirTest = options.isDirectory ?? isDir;
 	const start = isAbsolute(options.cwd) ? options.cwd : resolve(options.cwd);
 
 	let currentDir = start;
-	const targets: string[] = [];
-	const seen = new Set<string>();
+	const targets: ReadTarget[] = [];
+	const positions = new Map<string, number>();
+	const parsed = segments(command);
 
-	for (const raw of segments(command)) {
+	for (const [position, raw] of parsed.entries()) {
 		const tokens = stripPrefixes(raw);
 		if (tokens.length === 0) continue;
 
@@ -144,6 +155,13 @@ export function bashReadTargets(command: string, options: ReadTargetOptions): st
 		// `sed -i` rewrites the file in place; that is a write, not a read.
 		if (head === "sed" && tokens.some((token) => /^-i/.test(token))) continue;
 
+		// `cat f | head -100` shows the head, not the file.
+		const slicedLater = parsed.slice(position + 1).some((later) => {
+			const laterHead = stripPrefixes(later)[0];
+			return laterHead === "head" || laterHead === "tail";
+		});
+		const complete = WHOLE_FILE_COMMANDS.has(head) && !slicedLater;
+
 		let skipNext = false;
 		for (const token of tokens.slice(1)) {
 			if (skipNext) {
@@ -157,9 +175,14 @@ export function bashReadTargets(command: string, options: ReadTargetOptions): st
 			if (isDynamic(token)) continue;
 			const path = resolve(currentDir, token);
 			if (!fileTest(path)) continue;
-			if (seen.has(path)) continue;
-			seen.add(path);
-			targets.push(path);
+
+			const known = positions.get(path);
+			if (known === undefined) {
+				positions.set(path, targets.length);
+				targets.push({ path, complete });
+			} else if (complete) {
+				targets[known] = { path, complete: true };
+			}
 		}
 	}
 

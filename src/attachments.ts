@@ -19,6 +19,12 @@ export type PlanInput = {
 	 * false: inject once per path for as long as the record stays visible.
 	 */
 	compareContent?: boolean;
+	/**
+	 * false when the tool showed only part of `targetPath` itself (`head`, `sed -n`,
+	 * a ranged `read`). Reading the context file that way must not record it as
+	 * loaded, or the rest of the file never reaches the model.
+	 */
+	completeTargetRead?: boolean;
 	/** Injectable for tests. */
 	isFile?: (path: string) => boolean;
 	readFile?: (path: string) => string;
@@ -85,6 +91,7 @@ export function contextFileIn(
 export function planAttachments(input: PlanInput): Plan {
 	const { targetPath, root, known } = input;
 	const compareContent = input.compareContent ?? true;
+	const completeTargetRead = input.completeTargetRead ?? true;
 	const isFile = input.isFile ?? defaultIsFile;
 	const readFile = input.readFile ?? defaultReadFile;
 
@@ -101,7 +108,9 @@ export function planAttachments(input: PlanInput): Plan {
 		if (!file) continue;
 
 		if (file === target) {
-			// Reading the context file itself already hands the model its text.
+			// A full read already hands the model the text; a slice does not, so leave it
+			// unrecorded and let a later call load the whole file.
+			if (!completeTargetRead) continue;
 			try {
 				recorded.push({ path: file, sha: hashContent(readFile(file)) });
 			} catch {
